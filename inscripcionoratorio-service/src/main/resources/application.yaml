@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: inscripcionoratorio-service
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  datasource:
+    url: jdbc:h2:mem:inscripcionoratorio;DB_CLOSE_DELAY=-1
+
+server:
+  servlet:
+    context-path: /api/v1

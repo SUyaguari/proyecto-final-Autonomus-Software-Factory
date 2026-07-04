@@ -1,0 +1,288 @@
+openapi: 3.0.3
+info:
+  title: Ficha Familiar Unificada API
+  description: >
+    Contrato de la historia US-01 (épica E-01): registrar el representante legal de una familia
+    y agregar uno o más hijos a la misma ficha, sin repetir los datos del representante.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Desarrollo local (./gradlew bootRun)
+  - url: /api/v1
+    description: Relativo al host donde se sirve este contrato (usado por Swagger UI embebido en la propia app)
+
+tags:
+  - name: FichasFamiliares
+    description: Gestión de fichas de inscripción familiar (representante + hijos)
+
+paths:
+  /fichas-familiares:
+    post:
+      tags: [FichasFamiliares]
+      operationId: crearFichaFamiliar
+      summary: Registra una ficha nueva con los datos del representante legal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepresentanteLegalRequest'
+      responses:
+        '201':
+          description: Ficha creada con el representante legal registrado (estado INCOMPLETA).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FichaFamiliarResponse'
+        '400':
+          description: Datos obligatorios del representante incompletos o cédula inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /fichas-familiares/{fichaId}:
+    delete:
+      tags: [FichasFamiliares]
+      operationId: cancelarFichaFamiliar
+      summary: Cancela (elimina) una ficha que aún no tiene ningún hijo registrado
+      parameters:
+        - $ref: '#/components/parameters/FichaIdPath'
+      responses:
+        '200':
+          description: Ficha cancelada y eliminada correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+        '404':
+          description: La ficha no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: La ficha ya tiene al menos un hijo registrado y no puede cancelarse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /fichas-familiares/{fichaId}/representante:
+    put:
+      tags: [FichasFamiliares]
+      operationId: actualizarRepresentanteLegal
+      summary: Edita los datos del representante legal de una ficha existente
+      parameters:
+        - $ref: '#/components/parameters/FichaIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepresentanteLegalRequest'
+      responses:
+        '200':
+          description: Datos del representante actualizados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FichaFamiliarResponse'
+        '400':
+          description: Datos obligatorios incompletos o cédula inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: La ficha no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /fichas-familiares/{fichaId}/hijos:
+    post:
+      tags: [FichasFamiliares]
+      operationId: agregarHijo
+      summary: Agrega un hijo a una ficha existente, vinculándolo automáticamente al representante ya registrado
+      parameters:
+        - $ref: '#/components/parameters/FichaIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NinoHijoRequest'
+      responses:
+        '201':
+          description: Hijo agregado y vinculado al representante de la ficha.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FichaFamiliarResponse'
+        '400':
+          description: >
+            Datos obligatorios del representante incompletos (bloquea el avance) o datos
+            propios del hijo incompletos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: La ficha no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    FichaIdPath:
+      name: fichaId
+      in: path
+      required: true
+      description: Identificador de la ficha familiar (usar 1 para la ficha COMPLETA precargada o 2 para la INCOMPLETA precargada; ver data.sql).
+      schema:
+        type: integer
+        format: int64
+        example: 1
+
+  schemas:
+    RepresentanteLegalRequest:
+      type: object
+      required: [nombreCompleto, cedula, celular, direccion]
+      properties:
+        nombreCompleto:
+          type: string
+          minLength: 1
+          example: Maria Perez
+        cedula:
+          type: string
+          pattern: '^\d{10}$'
+          description: Cédula ecuatoriana (10 dígitos numéricos con dígito verificador válido).
+          example: '1710034065'
+        celular:
+          type: string
+          minLength: 1
+          example: '0991234567'
+        direccion:
+          type: string
+          minLength: 1
+          example: Av. Siempre Viva 123
+      example:
+        nombreCompleto: Maria Perez
+        cedula: '1710034065'
+        celular: '0991234567'
+        direccion: Av. Siempre Viva 123
+
+    NinoHijoRequest:
+      type: object
+      required: [nombreCompleto, fechaNacimiento]
+      properties:
+        nombreCompleto:
+          type: string
+          minLength: 1
+          example: Juan Perez
+        fechaNacimiento:
+          type: string
+          format: date
+          example: '2016-05-10'
+      example:
+        nombreCompleto: Juan Perez
+        fechaNacimiento: '2016-05-10'
+
+    NinoHijoResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nombreCompleto:
+          type: string
+          example: Juan Perez
+        fechaNacimiento:
+          type: string
+          format: date
+          example: '2016-05-10'
+
+    FichaFamiliarResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        estado:
+          type: string
+          enum: [INCOMPLETA, COMPLETA]
+          example: COMPLETA
+        representanteLegal:
+          $ref: '#/components/schemas/RepresentanteLegalRequest'
+        hijos:
+          type: array
+          items:
+            $ref: '#/components/schemas/NinoHijoResponse'
+        fechaCreacion:
+          type: string
+          format: date-time
+          example: '2026-07-01T09:00:00Z'
+      example:
+        id: 1
+        estado: COMPLETA
+        representanteLegal:
+          nombreCompleto: Maria Perez
+          cedula: '1710034065'
+          celular: '0991234567'
+          direccion: Av. Siempre Viva 123
+        hijos:
+          - id: 1
+            nombreCompleto: Juan Perez
+            fechaNacimiento: '2016-05-10'
+          - id: 2
+            nombreCompleto: Ana Perez
+            fechaNacimiento: '2018-09-02'
+        fechaCreacion: '2026-07-01T09:00:00Z'
+
+    MensajeResponse:
+      type: object
+      properties:
+        mensaje:
+          type: string
+          example: Ficha familiar eliminada correctamente.
+      example:
+        mensaje: Ficha familiar eliminada correctamente.
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-07-04T13:45:00Z'
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Solicitud inválida
+        message:
+          type: string
+          example: Uno o más campos obligatorios son inválidos o faltan
+        path:
+          type: string
+          example: /api/v1/fichas-familiares
+        camposFaltantes:
+          type: array
+          items:
+            type: string
+          description: Presente solo en errores de validación (400) para indicar qué campos obligatorios faltan.
+          example: [celular, direccion]
+      example:
+        timestamp: '2026-07-04T13:45:00Z'
+        status: 400
+        error: Solicitud inválida
+        message: Uno o más campos obligatorios son inválidos o faltan
+        path: /api/v1/fichas-familiares
+        camposFaltantes: [celular, direccion]
