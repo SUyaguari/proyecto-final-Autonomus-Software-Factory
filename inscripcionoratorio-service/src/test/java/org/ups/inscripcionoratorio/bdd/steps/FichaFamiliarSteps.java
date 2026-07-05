@@ -13,12 +13,19 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.ActiveProfiles;
 
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 public class FichaFamiliarSteps {
+
+    private static final String CREDENCIALES_BASIC_AUTH = "Basic " + Base64.getEncoder().encodeToString(
+            "receptor-test:test-password-123".getBytes(StandardCharsets.UTF_8));
 
     @LocalServerPort
     private int puerto;
@@ -42,6 +49,7 @@ public class FichaFamiliarSteps {
     private HttpResponse<String> post(String url, String cuerpo) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("Content-Type", "application/json")
+                .header("Authorization", CREDENCIALES_BASIC_AUTH)
                 .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
                 .build();
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString());

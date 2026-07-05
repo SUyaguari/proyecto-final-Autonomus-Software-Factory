@@ -1,0 +1,6 @@
+spring:
+  security:
+    user:
+      name: receptor-test
+      password: "{bcrypt}$2a$10$LnYquw5xNFFYcgAwSsWE5uOw511nYe29syXra5YHA6zmpupur/93q"
+      roles: RECEPTOR_INSCRIPCIONES

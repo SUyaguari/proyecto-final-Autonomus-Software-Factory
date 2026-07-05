@@ -15,6 +15,9 @@ tags:
   - name: FichasFamiliares
     description: Gestión de fichas de inscripción familiar (representante + hijos)
 
+security:
+  - basicAuth: []
+
 paths:
   /fichas-familiares:
     post:
@@ -40,6 +43,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
 
   /fichas-familiares/{fichaId}:
     delete:
@@ -67,6 +72,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
 
   /fichas-familiares/{fichaId}/representante:
     put:
@@ -100,6 +107,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
 
   /fichas-familiares/{fichaId}/hijos:
     post:
@@ -135,8 +144,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
 
 components:
+  responses:
+    NoAutenticado:
+      description: No se proporcionaron credenciales válidas (HTTP Basic).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >
+        Autenticación HTTP Basic. Usuario único con rol RECEPTOR_INSCRIPCIONES, configurado por
+        variables de entorno (APP_USER/APP_PASSWORD); ver research.md sección de seguridad.
+
   parameters:
     FichaIdPath:
       name: fichaId

@@ -154,3 +154,49 @@ Este documento resuelve las decisiones de diseño necesarias para pasar de la es
   — rechazada por ser menos predecible y no seguir el patrón ya adoptado por el equipo; no
   precargar datos y depender solo de los `curl` del quickstart — rechazada porque dificulta
   probar rápidamente escenarios con una ficha ya `COMPLETA` sin repetir los pasos de creación.
+
+## 8. Autenticación de los endpoints (Principio VIII)
+
+- **Contexto**: Un agente externo de calidad/gobernanza (`quality-output/report.html` y
+  `verification.json`) marcó como hallazgo `high` que los 4 endpoints de
+  `FichaFamiliarController` no exigían ninguna autenticación, pese a manejar datos personales
+  de representantes legales y menores. La decisión original de este plan había diferido
+  explícitamente Spring Security a una historia futura de roles/permisos (ver Complexity
+  Tracking en versiones anteriores de `plan.md`).
+- **Decision**: Se agregó `spring-boot-starter-security` con un único usuario en memoria (sin
+  base de datos de usuarios) y un único rol `RECEPTOR_INSCRIPCIONES`:
+  - `SecurityConfig` (`shared/infrastructure/security`) exige autenticación HTTP Basic y el rol
+    `RECEPTOR_INSCRIPCIONES` para `/fichas-familiares/**`; deja públicos `/v3/api-docs/**` y
+    `/swagger-ui/**` (documentación, no datos); todo lo demás requiere autenticación por
+    defecto (`anyRequest().authenticated()`).
+  - Usuario y contraseña se configuran por variables de entorno `APP_USER`/`APP_PASSWORD` en
+    `application.yaml` (`spring.security.user.*`), **sin valor por defecto**: si no se
+    proveen, la app falla al arrancar en vez de exponer un usuario/contraseña conocido
+    embebido en el código (Principios VII y VIII).
+  - `APP_PASSWORD` debe ser un hash BCrypt con el prefijo `{bcrypt}` (p. ej.
+    `{bcrypt}$2a$10$...`), nunca la contraseña en texto plano — generado una sola vez con
+    `BCryptPasswordEncoder` y guardado como secreto de entorno/CI, no en el repositorio.
+  - Sesión sin estado (`SessionCreationPolicy.STATELESS`) y CSRF deshabilitado, apropiado para
+    una API REST sin sesiones de navegador basadas en cookies.
+  - Se añadió `security: - basicAuth: []` y el esquema `basicAuth` (HTTP Basic) al contrato
+    OpenAPI, más una respuesta `401` compartida (`components.responses.NoAutenticado`) en las 4
+    operaciones, cumpliendo API-First (Principio IV): el contrato refleja el comportamiento real
+    antes/junto con el código.
+  - Pruebas: `application-test.yaml` (perfil `test`, solo `src/test/resources`) define un
+    usuario de prueba (`receptor-test`, hash BCrypt de una contraseña fija de test) sin afectar
+    la configuración de `datasource`/`jpa`/`sql.init` del perfil por defecto (Spring Boot
+    fusiona el perfil `test` sobre `application.yaml`, no lo reemplaza). `FichaFamiliarControllerIT`
+    inyecta la cabecera `Authorization` en cada request vía un `MockMvcBuilderCustomizer`
+    (`defaultRequest`); los steps de Cucumber (`FichaFamiliarSteps`) la agregan directamente en
+    cada llamada HTTP.
+- **Rationale**: Resuelve el hallazgo real (ningún endpoint estaba protegido) con la menor
+  complejidad posible: un solo usuario/rol, sin tabla de usuarios, sin emisión de tokens, sin
+  flujo de login — exactamente lo que YAGNI permite dado que la especificación de US-01 sigue
+  sin definir múltiples roles. Cumple Principio VIII (autenticación real, contraseña con hash
+  seguro) sin violar Principio III (no se construye infraestructura de roles/JWT especulativa).
+- **Alternatives considered**: (a) JWT con emisor propio — rechazada por ahora: requeriría
+  diseñar un endpoint de login, una entidad `Usuario` con su propia tabla y validación de
+  tokens, alcance equivalente a una historia de usuario nueva completa, no a "proteger 4
+  endpoints existentes". (b) Dejarlo diferido a una historia futura, sin tocar código — 
+  rechazada porque el hallazgo `high` del agente de calidad y la petición explícita del usuario
+  pedían resolverlo ahora, no solo documentarlo.

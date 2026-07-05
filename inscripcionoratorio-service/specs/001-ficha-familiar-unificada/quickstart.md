@@ -11,11 +11,18 @@ Guía para validar de extremo a extremo que US-01 funciona, una vez implementada
 
 ## Levantar el servicio
 
+Los endpoints requieren HTTP Basic (Principio VIII, ver research.md §8). Antes de levantar el
+servicio, exporta un usuario y una contraseña ya codificada en BCrypt (nunca texto plano):
+
 ```bash
+export APP_USER=receptor
+export APP_PASSWORD='{bcrypt}$2a$10$PwlEMq1XAH5dVoFKDxrkGOhuS4yYWW8AjlQdwK7ofvgWhuacKa2BS'  # contraseña real: dev-password-123
 ./gradlew bootRun
 ```
 
-El servicio queda disponible en `http://localhost:8080/api/v1`.
+El servicio queda disponible en `http://localhost:8080/api/v1`. Todas las peticiones a
+`/fichas-familiares/**` deben incluir `-u receptor:dev-password-123` (o el usuario/contraseña
+que hayas configurado); `/swagger-ui/**` y `/v3/api-docs` quedan públicos.
 
 **Datos precargados**: al iniciar, `data.sql` ya inserta una ficha `COMPLETA` (representante +
 2 hijos) y una ficha `INCOMPLETA` (solo representante), siguiendo el mismo patrón de
@@ -25,7 +32,7 @@ en los Escenarios 4 y 5 sin repetir el Escenario 1.
 ## Escenario 1 — Registrar representante y habilitar hijos (AC #1 de spec.md)
 
 ```bash
-curl -i -X POST http://localhost:8080/api/v1/fichas-familiares \
+curl -i -u receptor:dev-password-123 -X POST http://localhost:8080/api/v1/fichas-familiares \
   -H "Content-Type: application/json" \
   -d '{
         "nombreCompleto": "Maria Perez",
@@ -41,11 +48,11 @@ con los datos enviados y `hijos: []`. Anotar el `id` retornado como `FICHA_ID`.
 ## Escenario 2 — Agregar dos hijos sin repetir datos del representante (AC #2 de spec.md)
 
 ```bash
-curl -i -X POST http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/hijos \
+curl -i -u receptor:dev-password-123 -X POST http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/hijos \
   -H "Content-Type: application/json" \
   -d '{"nombreCompleto": "Juan Perez", "fechaNacimiento": "2016-05-10"}'
 
-curl -i -X POST http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/hijos \
+curl -i -u receptor:dev-password-123 -X POST http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/hijos \
   -H "Content-Type: application/json" \
   -d '{"nombreCompleto": "Ana Perez", "fechaNacimiento": "2018-09-02"}'
 ```
@@ -57,7 +64,7 @@ curl -i -X POST http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/hijos \
 ## Escenario 3 — Bloqueo por datos incompletos del representante (AC #3 de spec.md)
 
 ```bash
-curl -i -X POST http://localhost:8080/api/v1/fichas-familiares \
+curl -i -u receptor:dev-password-123 -X POST http://localhost:8080/api/v1/fichas-familiares \
   -H "Content-Type: application/json" \
   -d '{"nombreCompleto": "Carlos Ruiz", "cedula": "1710034065"}'
 ```
@@ -68,7 +75,7 @@ incluye `camposFaltantes: ["celular", "direccion"]`. No se crea ninguna ficha.
 ## Escenario 4 — Cancelar una ficha sin hijos (FR-011)
 
 ```bash
-curl -i -X DELETE http://localhost:8080/api/v1/fichas-familiares/FICHA_ID_SIN_HIJOS
+curl -i -u receptor:dev-password-123 -X DELETE http://localhost:8080/api/v1/fichas-familiares/FICHA_ID_SIN_HIJOS
 ```
 
 **Resultado esperado**: `200 OK` con cuerpo `{"mensaje": "Ficha familiar eliminada correctamente."}`
@@ -78,7 +85,7 @@ ejemplo, `FICHA_ID` del Escenario 2), se espera `409 Conflict`.
 ## Escenario 5 — Editar datos del representante (FR-010)
 
 ```bash
-curl -i -X PUT http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/representante \
+curl -i -u receptor:dev-password-123 -X PUT http://localhost:8080/api/v1/fichas-familiares/FICHA_ID/representante \
   -H "Content-Type: application/json" \
   -d '{
         "nombreCompleto": "Maria Perez",

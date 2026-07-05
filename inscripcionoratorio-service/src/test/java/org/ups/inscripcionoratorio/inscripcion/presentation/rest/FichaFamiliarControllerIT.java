@@ -8,20 +8,40 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.ConfigurableMockMvcBuilder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class FichaFamiliarControllerIT {
 
     private static final String BASE_PATH = "/fichas-familiares";
+
+    @TestConfiguration
+    static class AutenticacionTestConfig {
+        @Bean
+        MockMvcBuilderCustomizer basicAuthCustomizer() {
+            String credenciales = Base64.getEncoder().encodeToString(
+                    "receptor-test:test-password-123".getBytes(StandardCharsets.UTF_8));
+            return (ConfigurableMockMvcBuilder<?> builder) -> builder.defaultRequest(
+                    MockMvcRequestBuilders.get("/").header("Authorization", "Basic " + credenciales));
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -152,5 +172,14 @@ class FichaFamiliarControllerIT {
     void dadoFichaIdInexistente_cuandoLaCancelo_entoncesRetorna404() throws Exception {
         mockMvc.perform(delete(BASE_PATH + "/999999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Dada una petición sin credenciales, cuando se llama al endpoint, entonces responde 401 (Principio VIII)")
+    void dadaPeticionSinCredenciales_cuandoSeLlama_entoncesRetorna401() throws Exception {
+        mockMvc.perform(post(BASE_PATH).contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .header("Authorization", ""))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -2,62 +2,63 @@
   "proyecto": "inscripcionoratorio-service",
   "version": "0.0.1-SNAPSHOT",
   "fecha": "2026-07-04",
-  "commit": "n/a (no es repositorio git)",
+  "commit": "74008b4 (working tree con cambios sin commitear: build.gradle, SecurityConfig.java nuevo, application.yaml, application-test.yaml nuevo, tests IT/BDD, specs/001-ficha-familiar-unificada/{plan.md,research.md,quickstart.md,contracts/*})",
   "tests": {
-    "comando": "./gradlew clean test jacocoTestReport",
-    "passed": 44,
-    "total": 44,
-    "coverage": 99.03,
-    "coverage_fuente": "build/reports/jacoco/test/jacocoTestReport.xml (counter type=\"LINE\" missed=\"2\" covered=\"204\"); build.gradle:78-126 fija jacocoTestCoverageVerification minimum=0.80 global y por CLASS"
+    "comando": "./gradlew clean test jacocoTestReport (y jacocoTestCoverageVerification)",
+    "passed": 45,
+    "total": 45,
+    "coverage": 99.07,
+    "coverage_fuente": "build/reports/jacoco/test/jacocoTestReport.xml (counter type=\"LINE\" missed=\"2\" covered=\"214\" = 214/216 = 99.07%); build.gradle:97-127 jacocoTestCoverageVerification (minimum=0.80 global y minimum=0.80 por CLASS) corrido explicitamente y paso (BUILD SUCCESSFUL). Recuento de tests via build/test-results/test/*.xml (10 testsuites, sum tests=45, failures=0, errors=0), incluye el nuevo testsuite FichaFamiliarControllerIT con 11 tests (antes 10) por el nuevo test dadaPeticionSinCredenciales_cuandoSeLlama_entoncesRetorna401."
   },
   "security": {
-    "fuente": "Semgrep CLI (uvx semgrep --config=auto, 343 reglas, 23 archivos Java) + grep de secretos en src/main + revision manual de Spring Security",
+    "fuente": "Semgrep CLI (uvx semgrep --config=auto --no-git-ignore, 165 reglas Java/multilang efectivas, 24 archivos src/main/java) + grep de secretos en src/main y application*.yaml + revision manual de Spring Security y coincidencia de rutas",
     "critical": 0,
-    "high": 1,
+    "high": 0,
     "secrets": 0,
-    "hallazgos": [
-      {
-        "severidad": "high",
-        "regla": "missing-authn-authz (revision manual, no regla Semgrep especifica)",
-        "archivo": "src/main/java/org/ups/inscripcionoratorio/inscripcion/presentation/rest/FichaFamiliarController.java",
-        "linea": 39,
-        "nota": "El proyecto no declara spring-boot-starter-security (build.gradle sin dependencia) ni SecurityConfig/SecurityFilterChain/@PreAuthorize en todo src. Los 4 endpoints del controlador (crearFichaFamiliar:39, agregarHijo:45, actualizarRepresentanteLegal:51, cancelarFichaFamiliar:57) manejan datos personales de representantes y menores sin ninguna autenticacion. Decision de alcance documentada en specs/001-ficha-familiar-unificada/plan.md:41 y :58 (diferido a historia futura), pero sigue siendo una brecha real que el equipo debe triagear."
-      }
+    "hallazgos": [],
+    "notas_seguridad": [
+      "Hallazgo 'high' de la corrida anterior (2026-07-04, 'missing-authn-authz' sobre FichaFamiliarController.java:39/45/51/57) fue corregido: build.gradle agrega spring-boot-starter-security; SecurityConfig.java (src/main/java/.../shared/infrastructure/security/SecurityConfig.java:14-25) define un SecurityFilterChain que exige hasRole('RECEPTOR_INSCRIPCIONES') sobre '/fichas-familiares/**' y authenticated() para el resto, dejando publicos solo /v3/api-docs/** y /swagger-ui/**.",
+      "Verificacion manual de que el patron coincide con las rutas reales: FichaFamiliarController.java:18 implementa FichasFamiliaresApi (generado); el contrato openapi (src/main/resources/openapi/ficha-familiar.openapi.yaml, paths /fichas-familiares, /fichas-familiares/{fichaId}, /fichas-familiares/{fichaId}/representante, /fichas-familiares/{fichaId}/hijos) confirma que las 4 rutas caen bajo '/fichas-familiares/**'; el context-path 'server.servlet.context-path=/api/v1' (application.yaml:20-21) no afecta el matching de Spring Security porque AntPathMatcher/PathPatternRequestMatcher operan sobre la ruta sin context-path.",
+      "Confirmacion empirica (no solo analisis estatico): FichaFamiliarControllerIT.java:177-184 anade el test dadaPeticionSinCredenciales_cuandoSeLlama_entoncesRetorna401, que PASA (ver build/test-results/test/TEST-...FichaFamiliarControllerIT.xml, tests=11 failures=0); el resto de tests IT usa credenciales validas via MockMvcBuilderCustomizer (FichaFamiliarControllerIT.java:36-43) y tambien pasan, confirmando autenticacion + autorizacion por rol funcionando de extremo a extremo, no solo declarada en config.",
+      "Revision de secretos: application.yaml (src/main/resources) usa spring.security.user.name/password via variables de entorno ${APP_USER}/${APP_PASSWORD} sin valores por defecto (application.yaml:14-17) -> no hay credencial embebida para el perfil por defecto/produccion. src/test/resources/application-test.yaml (nuevo, solo perfil test) define un usuario 'receptor-test' con password ya hasheada con BCrypt ({bcrypt}$2a$10$...) -- no es una credencial de produccion, es fixture de prueba local; la contrasena en claro 'test-password-123' solo aparece codificada en Base64 dentro de FichaFamiliarControllerIT.java:39-40 y FichaFamiliarSteps.java:27-28 para armar la cabecera Authorization de los propios tests. No se cuenta como 'secreto' (no otorga acceso a ningun sistema real, es exclusivo del perfil test), pero se deja registrado para que el equipo lo confirme en su politica de higiene de secretos.",
+      "Semgrep --config=auto sobre src/main/java (24 archivos, incluye SecurityConfig.java aunque es un archivo sin commitear): 0 findings. No hay reglas especificas de Semgrep para 'endpoint sin autenticacion' en Spring (ese hallazgo salio de revision manual la vez anterior); la revision manual de esta corrida confirma la correccion."
     ]
   },
   "spec": "specs/001-ficha-familiar-unificada/spec.md",
   "criteria": [
     { "id": "FR-001", "fuente": "spec.md · FR-001", "status": "cumple",
-      "evidencia": "RegistrarRepresentanteUseCaseTest.java:30-45; FichaFamiliarControllerIT.java:44-53; bdd feature:7-10" },
+      "evidencia": "RegistrarRepresentanteUseCaseTest.java:30-45 (sin cambios); FichaFamiliarControllerIT.java:62-73 (dadoRepresentanteValido_cuandoCreoFicha_entoncesRetorna201Incompleta, PASA con credenciales validas via TestConfiguration:36-43); bdd feature (RunCucumberTest) PASA" },
     { "id": "FR-002", "fuente": "spec.md · FR-002", "status": "cumple",
-      "evidencia": "RegistrarRepresentanteUseCaseTest.java:30-45; FichaFamiliarMapperTest.java:18-36" },
+      "evidencia": "RegistrarRepresentanteUseCaseTest.java:30-45; FichaFamiliarMapperTest.java:18-36 (sin cambios, no tocados por el fix de seguridad)" },
     { "id": "FR-002a", "fuente": "spec.md · FR-002a (validacion cedula ecuatoriana)", "status": "cumple",
-      "evidencia": "CedulaEcuatorianaValidatorTest.java:14-69 (11 casos parametrizados); RegistrarRepresentanteUseCaseTest.java:48-59; FichaFamiliarControllerIT.java:67-76" },
+      "evidencia": "CedulaEcuatorianaValidatorTest.java:14-69 (11 casos parametrizados, sin cambios); RegistrarRepresentanteUseCaseTest.java:48-59; FichaFamiliarControllerIT.java:87-96 (dadaCedulaInvalida_cuandoCreoFicha_entoncesRetorna400, PASA)" },
     { "id": "FR-003", "fuente": "spec.md · FR-003", "status": "cumple",
-      "evidencia": "FichaFamiliarMapperTest.java:73-100; FichaFamiliarControllerIT.java:78-98 (representante persiste tras agregar 2 hijos)" },
+      "evidencia": "FichaFamiliarMapperTest.java:73-100; FichaFamiliarControllerIT.java:98-118 (dadaFichaExistente_cuandoAgregoDosHijos_entoncesQuedanVinculados, representante persiste tras 2 hijos, PASA)" },
     { "id": "FR-004", "fuente": "spec.md · FR-004 (habilitar seccion de hijos solo tras representante)", "status": "cumple",
-      "evidencia": "AgregarHijoUseCaseTest.java:52-63 y FichaFamiliarControllerIT.java:112-120 prueban 404/FichaNoEncontradaException al agregar hijo sobre fichaId inexistente. Cobertura indirecta: no hay test literal del escenario narrativo, pero la API hace estructuralmente imposible obtener un fichaId sin representante guardado." },
+      "evidencia": "AgregarHijoUseCaseTest.java:52-63 y FichaFamiliarControllerIT.java:132-140 (dadoFichaIdInexistente_cuandoAgregoHijo_entoncesRetorna404, PASA con credenciales). Cobertura indirecta igual que en la corrida anterior: no hay test literal del escenario narrativo, pero la API hace estructuralmente imposible obtener un fichaId sin representante guardado." },
     { "id": "FR-005", "fuente": "spec.md · FR-005", "status": "cumple",
-      "evidencia": "AgregarHijoUseCaseTest.java:33-50; FichaFamiliarControllerIT.java:78-98 (2 hijos); bdd escenario 2 (feature:12-17)" },
+      "evidencia": "AgregarHijoUseCaseTest.java:33-50; FichaFamiliarControllerIT.java:98-118 (2 hijos, PASA); bdd escenario 2 (RunCucumberTest, PASA con Authorization en FichaFamiliarSteps.java:49-56)" },
     { "id": "FR-006", "fuente": "spec.md · FR-006 (vinculacion automatica hijo-representante)", "status": "cumple",
-      "evidencia": "FichaFamiliarTest.java:48-63 (dadaFichaConUnHijo_cuandoSeAgregaSegundoHijo_entoncesAmbosQuedanVinculados); FichaFamiliarControllerIT.java:96-97" },
+      "evidencia": "FichaFamiliarTest.java:48-63; FichaFamiliarControllerIT.java:116-117 (jsonPath representanteLegal.cedula tras 2 hijos, PASA)" },
     { "id": "FR-007", "fuente": "spec.md · FR-007 (rechazo por campos obligatorios incompletos)", "status": "cumple",
-      "evidencia": "FichaFamiliarControllerIT.java:55-65 (400 + camposFaltantes); bdd escenario 3 (feature:19-22, FichaFamiliarSteps.java:110-126). Nota: la validacion real ocurre via Bean Validation (RepresentanteLegalRequest.java:56,77,98,119) interceptada por GlobalExceptionHandler; el throw redundante de RepresentanteLegal.requireNonBlank (linea 14) no se ejecuta en la suite (JaCoCo mi=6,ci=0), pero el requisito esta cubierto end-to-end." },
+      "evidencia": "FichaFamiliarControllerIT.java:75-85 (400 + camposFaltantes, PASA); bdd escenario 3 (FichaFamiliarSteps.java:118-134). Nota igual que en la corrida anterior: el throw redundante de RepresentanteLegal.requireNonBlank no se ejecuta en la suite, pero el requisito esta cubierto end-to-end via Bean Validation + GlobalExceptionHandler." },
     { "id": "FR-008", "fuente": "spec.md · FR-008", "status": "cumple",
-      "evidencia": "NinoHijo.java:7-14 (constructor valida); AgregarHijoUseCaseTest.java:65-72; FichaFamiliarControllerIT.java:100-110" },
+      "evidencia": "NinoHijo.java:7-14 (constructor valida, sin cambios); AgregarHijoUseCaseTest.java:65-72; FichaFamiliarControllerIT.java:120-130 (dadoHijoConDatosIncompletos_cuandoAgrego_entoncesRetorna400, PASA)" },
     { "id": "FR-009", "fuente": "spec.md · FR-009", "status": "cumple",
-      "evidencia": "FichaFamiliarTest.java:48-63; FichaFamiliarControllerIT.java:78-98; bdd escenario 2" },
+      "evidencia": "FichaFamiliarTest.java:48-63; FichaFamiliarControllerIT.java:98-118 (2 hijos en la misma ficha, PASA); bdd escenario 2" },
     { "id": "FR-010", "fuente": "spec.md · FR-010 (editar representante tras agregar hijos)", "status": "cumple",
-      "evidencia": "ActualizarRepresentanteUseCaseTest.java:33-52; FichaFamiliarControllerIT.java:122-131 (edita sobre ficha COMPLETA)" },
+      "evidencia": "ActualizarRepresentanteUseCaseTest.java:33-52 (sin cambios); FichaFamiliarControllerIT.java:142-151 (dadaFichaConHijos_cuandoEditoRepresentante_entoncesRetorna200, edita sobre ficha COMPLETA precargada, PASA con credenciales)" },
     { "id": "FR-011", "fuente": "spec.md · FR-011 (descarte al cancelar explicitamente)", "status": "cumple",
-      "evidencia": "CancelarFichaUseCaseTest.java:33-46 (INCOMPLETA->eliminada) y :48-61 (COMPLETA->FichaConHijosNoCancelableException); FichaFamiliarControllerIT.java:133-148 (200 vs 409). Sin mecanismo de expiracion/timeout en src/main, consistente con el texto del FR (no se infiere abandono implicito)." },
+      "evidencia": "CancelarFichaUseCaseTest.java:33-46 (INCOMPLETA->eliminada) y :48-61 (COMPLETA->FichaConHijosNoCancelableException), sin cambios; FichaFamiliarControllerIT.java:153-168 (200 vs 409, PASA)" },
     { "id": "FR-012", "fuente": "spec.md · FR-012 (ficha completa automaticamente)", "status": "cumple",
-      "evidencia": "FichaFamiliarTest.java:32-46 (EstadoFicha.COMPLETA tras primer hijo); FichaFamiliarControllerIT.java:87-89" },
+      "evidencia": "FichaFamiliarTest.java:32-46 (EstadoFicha.COMPLETA tras primer hijo, sin cambios); FichaFamiliarControllerIT.java:107-108 (jsonPath estado COMPLETA, PASA)" },
     { "id": "FR-013", "fuente": "spec.md · FR-013 (rechazo de hijo con datos propios incompletos)", "status": "cumple",
-      "evidencia": "AgregarHijoUseCaseTest.java:65-72 (dominio, IllegalArgumentException); FichaFamiliarControllerIT.java:100-110 (400 via Bean Validation en NinoHijoRequest.java:53,74)" }
+      "evidencia": "AgregarHijoUseCaseTest.java:65-72 (dominio, IllegalArgumentException, sin cambios); FichaFamiliarControllerIT.java:120-130 (400 via Bean Validation, PASA con credenciales)" }
   ],
   "notas": [
-    "Edge case 'cedula de representante duplicada entre fichas distintas' esta explicitamente fuera de alcance segun spec.md, seccion Assumptions (lineas 165-168); no se registra como criterio incumplido.",
-    "Hallazgo de seguridad 'high' por ausencia de Spring Security es una decision de alcance documentada en plan.md, no bloquea el gate (que solo exige 0 criticas y 0 secretos), pero se recomienda triage antes de produccion."
+    "Edge case 'cedula de representante duplicada entre fichas distintas' sigue explicitamente fuera de alcance segun spec.md, seccion Assumptions (lineas 165-168); no se registra como criterio incumplido.",
+    "El hallazgo de seguridad 'high' de la corrida anterior (2026-07-04) por ausencia de Spring Security fue corregido en esta iteracion: build.gradle, SecurityConfig.java, application.yaml/application-test.yaml, y los 3 archivos de test (FichaFamiliarControllerIT, FichaFamiliarSteps, InscripcionoratorioServiceApplicationTests) fueron actualizados de forma consistente. Se verifico no solo que la config declara la proteccion, sino que las rutas reales coinciden y que la suite de tests pasa en verde autenticandose correctamente (evidencia empirica, no solo estatica).",
+    "specs/001-ficha-familiar-unificada/plan.md y research.md fueron actualizados para reflejar la decision de seguridad (nueva seccion 8 de research.md, Complexity Tracking vaciado en plan.md); no introducen ni modifican ningun FR del spec.md, por lo que la lista FR-001..FR-013 se mantiene identica a la version anterior.",
+    "El archivo src/test/resources/application-test.yaml y la clase SecurityConfig.java estan sin commitear en git (untracked); se verificaron igual porque la auditoria es sobre el codigo actual en disco, tal como se pidio explicitamente."
   ]
 }

@@ -54,11 +54,13 @@ fixture de las pruebas de integración/funcionales (ver research.md §7).
 | IV. API-First con OpenAPI | El contrato OpenAPI (`contracts/ficha-familiar.openapi.yaml`) se define antes de la implementación; se añade el plugin `org.openapi.generator` para generar interfaces/modelos que el controlador implementa. | PASS (requiere añadir el plugin al build, ver research.md) |
 | V. Cobertura JaCoCo ≥80% | Se añade el plugin `jacoco` con reglas de verificación (global y por clase) sobre servicios/casos de uso/validadores/mappers, excluyendo clases generadas por OpenAPI Generator, DTOs, configuración, entidades JPA sin lógica y la clase principal. | PASS (requiere configurar el plugin, ver research.md) |
 | VI. Manejo Centralizado de Errores y Logging Seguro | Se introduce el primer `@RestControllerAdvice` del proyecto (paquete compartido) mapeando excepciones de dominio a respuestas de error consistentes; no se registran datos sensibles (cédula/celular no se loguean en texto claro en niveles INFO). | PASS |
-| VII. Configuración Externalizada | No se requieren nuevas credenciales ni configuración sensible; se reutiliza `application.yaml` existente. | PASS |
-| VIII. Seguridad desde el Diseño | La especificación no define roles/permisos para esta historia (asunción documentada en spec.md). No se añade Spring Security en esta iteración; los endpoints quedan sin autenticación hasta que una historia futura introduzca el modelo de roles. Justificación registrada en Complexity Tracking (abajo) para trazabilidad de gobernanza. | PASS con nota (ver Complexity Tracking) |
+| VII. Configuración Externalizada | Credenciales del único usuario (`APP_USER`/`APP_PASSWORD`, hash BCrypt) se leen por variable de entorno en `application.yaml`, sin valores por defecto ni secretos en el código fuente. | PASS |
+| VIII. Seguridad desde el Diseño | `spring-boot-starter-security` protege los 4 endpoints de `FichaFamiliarController` con HTTP Basic y un único rol `RECEPTOR_INSCRIPCIONES` (usuario en memoria, contraseña con hash BCrypt, ver research.md). Swagger UI y `/v3/api-docs` quedan públicos (documentación, no datos). | PASS |
 
-Una desviación (Principio VIII) queda registrada y justificada en la tabla de Complexity
-Tracking al final de este documento.
+Actualización posterior al MVP inicial: la desviación del Principio VIII que estaba registrada
+en Complexity Tracking (endpoints sin autenticación) se resolvió agregando Spring Security con
+HTTP Basic, a raíz de un hallazgo `high` de un agente de calidad externo (`quality-output/`).
+Ver research.md para el detalle de la decisión.
 
 **Re-check post-Fase 1 (tras data-model.md, contracts/ y quickstart.md)**: El diseño final
 (representante embebido, un único agregado `FichaFamiliar`, puerto `FichaFamiliarRepository`,
@@ -159,6 +161,9 @@ del contrato OpenAPI.
 
 ## Complexity Tracking
 
-| Desviación | Por qué es necesaria | Alternativa más simple descartada porque... |
-|---|---|---|
-| Endpoints de esta historia sin autenticación/autorización (Principio VIII) | La especificación de US-01 no define roles ni permisos (no hay AC de seguridad), y el proyecto aún no tiene ningún mecanismo de login/roles implementado en ningún módulo. | Añadir Spring Security en esta historia — descartada: no hay un modelo de roles definido todavía en ningún lugar del proyecto para configurar reglas de autorización con sentido; se estaría construyendo infraestructura especulativa (violaría YAGNI, Principio III) sin un requisito que la use. Se abordará en la historia futura que defina roles/permisos. |
+> Sin desviaciones activas. La única entrada previa (Principio VIII, endpoints sin
+> autenticación) se resolvió: se agregó `spring-boot-starter-security` con HTTP Basic y un
+> único rol `RECEPTOR_INSCRIPCIONES` (ver Constitution Check y research.md). No se implementó
+> un modelo de roles múltiples ni JWT por no haber otro requisito que lo justifique (YAGNI,
+> Principio III); si una historia futura necesita más de un rol o un flujo de login propio,
+> se ampliará entonces.
